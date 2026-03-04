@@ -11,10 +11,10 @@ use crate::{
 pub struct OmnipairAmmClient {
     pub pair_key: Pubkey,
     pub state: OmnipairPair,
-    pub(crate) derived: DerivedAccounts,
-    pub(crate) clock_ref: ClockRef,
-    pub(crate) rate_model_data: Option<OmnipairRateModel>,
-    pub(crate) interest_bps: u16,
+    pub derived: DerivedAccounts,
+    pub clock_ref: ClockRef,
+    pub rate_model_data: Option<OmnipairRateModel>,
+    pub interest_bps: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -68,14 +68,14 @@ pub fn deserialize_pair(data: &[u8]) -> Result<OmnipairPair> {
     Ok(OmnipairPair::deserialize(&mut &data[8..])?)
 }
 
-pub(crate) fn deserialize_rate_model(data: &[u8]) -> Result<OmnipairRateModel> {
+pub fn deserialize_rate_model(data: &[u8]) -> Result<OmnipairRateModel> {
     if data.len() < 8 {
         anyhow::bail!(crate::OmnipairError::InvalidAccountData);
     }
     Ok(OmnipairRateModel::deserialize(&mut &data[8..])?)
 }
 
-pub(crate) fn deserialize_futarchy_authority(data: &[u8]) -> Result<OmnipairFutarchyAuthority> {
+pub fn deserialize_futarchy_authority(data: &[u8]) -> Result<OmnipairFutarchyAuthority> {
     if data.len() < 8 {
         anyhow::bail!(crate::OmnipairError::InvalidAccountData);
     }

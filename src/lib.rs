@@ -7,8 +7,8 @@ use jupiter_amm_interface::{
 use rust_decimal::Decimal;
 use std::sync::atomic::Ordering;
 
-mod interest;
-mod omnipair_amm_client;
+pub mod interest;
+pub mod omnipair_amm_client;
 
 pub use interest::{OmnipairFutarchyAuthority, OmnipairRateModel};
 pub use omnipair_amm_client::{OmnipairAmmClient, OmnipairSwapAccounts};
@@ -20,15 +20,17 @@ pub const SPL_TOKEN_PROGRAM_ID: Pubkey =
 pub const TOKEN_2022_PROGRAM_ID: Pubkey =
     Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
-pub(crate) const BPS_DENOMINATOR: u128 = 10_000;
-pub(crate) const RESERVE_VAULT_SEED_PREFIX: &[u8] = b"reserve_vault";
-pub(crate) const FUTARCHY_AUTHORITY_SEED_PREFIX: &[u8] = b"futarchy_authority";
+pub const BPS_DENOMINATOR: u128 = 10_000;
+pub const RESERVE_VAULT_SEED_PREFIX: &[u8] = b"reserve_vault";
+pub const FUTARCHY_AUTHORITY_SEED_PREFIX: &[u8] = b"futarchy_authority";
 
-pub(crate) fn ceil_div(numerator: u128, denominator: u128) -> Option<u128> {
+pub fn ceil_div(numerator: u128, denominator: u128) -> Option<u128> {
     if denominator == 0 {
         return None;
     }
-    Some((numerator + denominator - 1) / denominator)
+    numerator
+        .checked_add(denominator - 1)
+        .map(|adjusted| adjusted / denominator)
 }
 
 #[derive(Debug)]

@@ -8,25 +8,29 @@ const NATURAL_LOG_OF_TWO_NAD: u64 = 693_147_180;
 const TAYLOR_TERMS: u64 = 5;
 const MILLISECONDS_PER_YEAR: u64 = 31_536_000_000;
 
-pub(crate) fn slots_to_ms(start_slot: u64, end_slot: u64) -> Option<u64> {
+pub fn slots_to_ms(start_slot: u64, end_slot: u64) -> Option<u64> {
     end_slot
         .checked_sub(start_slot)?
         .checked_mul(TARGET_MS_PER_SLOT)
 }
 
-fn taylor_exp(x: i64, scale: u64, precision: u64) -> u64 {
+fn taylor_exp(x: i128, scale: u64, precision: u64) -> u64 {
+    if scale == 0 {
+        return 0;
+    }
+
     let is_negative = x < 0;
-    let abs_x = if is_negative { -x } else { x };
+    let abs_x = x.unsigned_abs();
 
     let n = 10u64;
-    let reduced_x = abs_x / (n as i64);
+    let reduced_x = abs_x / (n as u128);
 
     let mut term = scale as u128;
     let mut sum = scale as u128;
 
     for i in 1..=precision {
         term = term
-            .checked_mul(reduced_x as u128)
+            .checked_mul(reduced_x)
             .and_then(|t| t.checked_div(i as u128 * scale as u128))
             .unwrap_or(0);
         sum = sum.checked_add(term).unwrap_or(u128::MAX);
@@ -41,6 +45,9 @@ fn taylor_exp(x: i64, scale: u64, precision: u64) -> u64 {
     }
 
     if is_negative {
+        if result == 0 {
+            return u64::MAX;
+        }
         result = (scale as u128 * scale as u128) / result;
     }
 
@@ -106,14 +113,25 @@ impl OmnipairRateModel {
             return (last_rate, 0);
         }
 
-        let exp_rate = self.exp_rate as u128;
-        let x = exp_rate.saturating_mul(dt);
-        let gd = taylor_exp(-(x as i64), NAD, TAYLOR_TERMS) as u128;
-
         let min_nad = self.min_rate as u128;
         let max_nad = self.max_rate as u128;
         let has_max_cap = max_nad > 0;
         let last = (last_rate as u128).max(min_nad);
+
+        let exp_rate = self.exp_rate as u128;
+        if exp_rate == 0 {
+            let curr = if has_max_cap { last.min(max_nad) } else { last };
+            let integral = ceil_div(curr.saturating_mul(dt), MILLISECONDS_PER_YEAR as u128)
+                .unwrap_or(curr.saturating_mul(dt) / (MILLISECONDS_PER_YEAR as u128));
+            return (
+                curr.min(u64::MAX as u128) as u64,
+                integral.min(u64::MAX as u128) as u64,
+            );
+        }
+
+        let x = exp_rate.saturating_mul(dt);
+        let x_i128 = i128::try_from(x).unwrap_or(i128::MAX);
+        let gd = taylor_exp(-x_i128, NAD, TAYLOR_TERMS) as u128;
 
         if (last_util as u128) > (self.target_util_end as u128) {
             let curr_unclamped = last.saturating_mul(NAD as u128) / gd.max(1);
@@ -136,14 +154,10 @@ impl OmnipairRateModel {
                     max_nad.saturating_sub(last).saturating_mul(NAD as u128),
                     exp_rate,
                 )
-                .unwrap_or(
-                    max_nad.saturating_sub(last).saturating_mul(NAD as u128) / exp_rate,
-                );
+                .unwrap_or(max_nad.saturating_sub(last).saturating_mul(NAD as u128) / exp_rate);
                 let flat_part = max_nad.saturating_mul(dt.saturating_sub(t_to_max));
-                let integral =
-                    ceil_div(exp_part + flat_part, MILLISECONDS_PER_YEAR as u128).unwrap_or(
-                        (exp_part + flat_part) / (MILLISECONDS_PER_YEAR as u128),
-                    );
+                let integral = ceil_div(exp_part + flat_part, MILLISECONDS_PER_YEAR as u128)
+                    .unwrap_or((exp_part + flat_part) / (MILLISECONDS_PER_YEAR as u128));
                 return (
                     max_nad.min(u64::MAX as u128) as u64,
                     integral.min(u64::MAX as u128) as u64,
@@ -176,11 +190,11 @@ impl OmnipairRateModel {
                 );
             } else {
                 if last <= min_nad {
-                    let integral = ceil_div(
-                        min_nad.saturating_mul(dt),
-                        MILLISECONDS_PER_YEAR as u128,
-                    )
-                    .unwrap_or(min_nad.saturating_mul(dt) / (MILLISECONDS_PER_YEAR as u128));
+                    let integral =
+                        ceil_div(min_nad.saturating_mul(dt), MILLISECONDS_PER_YEAR as u128)
+                            .unwrap_or(
+                                min_nad.saturating_mul(dt) / (MILLISECONDS_PER_YEAR as u128),
+                            );
                     return (
                         min_nad.min(u64::MAX as u128) as u64,
                         integral.min(u64::MAX as u128) as u64,
@@ -192,14 +206,10 @@ impl OmnipairRateModel {
                     last.saturating_sub(min_nad).saturating_mul(NAD as u128),
                     exp_rate,
                 )
-                .unwrap_or(
-                    last.saturating_sub(min_nad).saturating_mul(NAD as u128) / exp_rate,
-                );
+                .unwrap_or(last.saturating_sub(min_nad).saturating_mul(NAD as u128) / exp_rate);
                 let flat_part = min_nad.saturating_mul(dt.saturating_sub(t_to_min));
-                let integral =
-                    ceil_div(exp_part + flat_part, MILLISECONDS_PER_YEAR as u128).unwrap_or(
-                        (exp_part + flat_part) / (MILLISECONDS_PER_YEAR as u128),
-                    );
+                let integral = ceil_div(exp_part + flat_part, MILLISECONDS_PER_YEAR as u128)
+                    .unwrap_or((exp_part + flat_part) / (MILLISECONDS_PER_YEAR as u128));
                 return (
                     min_nad.min(u64::MAX as u128) as u64,
                     integral.min(u64::MAX as u128) as u64,
@@ -227,7 +237,11 @@ impl OmnipairRateModel {
             }
             let ln_ratio = Self::ln_nad(ratio_nad_u64);
             let t = ln_ratio / (exp_rate as i128);
-            if t <= 0 { 0 } else { t as u128 }
+            if t <= 0 {
+                0
+            } else {
+                t as u128
+            }
         } else {
             if r0 <= target {
                 return 0;
@@ -239,12 +253,18 @@ impl OmnipairRateModel {
             }
             let ln_ratio = Self::ln_nad(ratio_nad_u64);
             let t = ln_ratio / (exp_rate as i128);
-            if t <= 0 { 0 } else { t as u128 }
+            if t <= 0 {
+                0
+            } else {
+                t as u128
+            }
         }
     }
 
     fn ln_nad(x_nad: u64) -> i128 {
-        assert!(x_nad > 0, "ln_nad: x must be > 0");
+        if x_nad == 0 {
+            return 0;
+        }
         let mut z = x_nad as u128;
         let mut k: i128 = 0;
 

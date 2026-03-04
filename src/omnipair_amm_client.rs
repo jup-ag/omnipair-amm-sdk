@@ -10,19 +10,19 @@ use crate::{
 pub struct OmnipairAmmClient {
     pub pair_key: Pubkey,
     pub state: OmnipairPair,
-    pub(crate) derived: DerivedAccounts,
+    pub derived: DerivedAccounts,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DerivedAccounts {
-    pub(crate) reserve_vault0: Pubkey,
-    pub(crate) reserve_vault1: Pubkey,
-    pub(crate) futarchy_authority: Pubkey,
-    pub(crate) event_authority: Pubkey,
+pub struct DerivedAccounts {
+    pub reserve_vault0: Pubkey,
+    pub reserve_vault1: Pubkey,
+    pub futarchy_authority: Pubkey,
+    pub event_authority: Pubkey,
 }
 
 impl DerivedAccounts {
-    pub(crate) fn compute(pair_key: &Pubkey, state: &OmnipairPair) -> Self {
+    pub fn compute(pair_key: &Pubkey, state: &OmnipairPair) -> Self {
         let (reserve_vault0, _) = Pubkey::find_program_address(
             &[
                 RESERVE_VAULT_SEED_PREFIX,
@@ -57,7 +57,7 @@ impl AmmProgramIdToLabel for OmnipairAmmClient {
         &[(OMNIPAIR_PROGRAM_ID, "Omnipair")];
 }
 
-pub(crate) fn deserialize_pair(data: &[u8]) -> Result<OmnipairPair> {
+pub fn deserialize_pair(data: &[u8]) -> Result<OmnipairPair> {
     if data.len() < 8 {
         anyhow::bail!(crate::OmnipairError::InvalidAccountData);
     }

@@ -557,7 +557,7 @@ mod tests {
         println!("\n=== Update (re-fetch) ===");
         let accounts_to_update = amm.get_accounts_to_update();
         println!("  accounts to update: {:?}", accounts_to_update);
-        let account_map: HashMap<Pubkey, solana_sdk::account::Account, ahash::RandomState> = client
+        let account_map: HashMap<Pubkey, solana_account::Account, ahash::RandomState> = client
             .get_multiple_accounts(&accounts_to_update)
             .unwrap()
             .into_iter()
@@ -584,6 +584,7 @@ mod tests {
             input_mint: amm.state.token0,
             output_mint: amm.state.token1,
             swap_mode: SwapMode::ExactIn,
+            fee_mode: jupiter_amm_interface::FeeMode::Normal,
         }) {
             Ok(quote) => {
                 println!("  in_amount:   {}", quote.in_amount);
@@ -608,6 +609,7 @@ mod tests {
             input_mint: amm.state.token1,
             output_mint: amm.state.token0,
             swap_mode: SwapMode::ExactIn,
+            fee_mode: jupiter_amm_interface::FeeMode::Normal,
         }) {
             Ok(quote) => {
                 println!("  in_amount:   {}", quote.in_amount);
@@ -635,6 +637,8 @@ mod tests {
                 source_token_account: placeholder,
                 destination_token_account: placeholder,
                 token_transfer_authority: placeholder,
+                user: placeholder,
+                payer: placeholder,
                 quote_mint_to_referrer: None,
                 in_amount: amount_0,
                 out_amount: 0,

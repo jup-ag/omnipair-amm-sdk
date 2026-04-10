@@ -7,14 +7,14 @@ license = "MIT"
 repository = "https://github.com/omnipair/omnipair-amm-sdk"
 
 [dependencies]
-anchor-lang = "0.31.1"
+anchor-lang = "1.0.0"
 anyhow = "1"
-borsh = "0.10"
-jupiter-amm-interface = "0.6.1"
+borsh = "1"
+jupiter-amm-interface = { version = ">=1.0.0-beta.0, <2" }
 rust_decimal = "1.26.1"
 
 [dev-dependencies]
-solana-sdk = "^2.3.1"
-solana-rpc-client = "^2.2"
-solana-commitment-config = "^2.2"
+solana-account = "3"
+solana-rpc-client = "3"
+solana-commitment-config = "3"
 ahash = "0.8.12"
